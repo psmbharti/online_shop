@@ -1,6 +1,6 @@
 import os
 import psycopg2
-
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")
 def get_db():
     return psycopg2.connect(
         host=os.getenv("dpg-d7vottbrjlhs73duc5n0-a"),
