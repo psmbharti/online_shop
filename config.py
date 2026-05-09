@@ -7,5 +7,5 @@ def get_db():
         database=os.getenv("online_shop_db_ixcd"),
         user=os.getenv("online_shop_db_ixcd_user"),
         password=os.getenv("W8n91glskNtNwqkSD8YDGxcMF1rNBIN7"),
-        port=os.getenv("5432")
+        port=os.getenv(5432)
     )
