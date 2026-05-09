@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Order Confirmation - Online Shop{% endblock %}
+{% block content %}
+<h1>Thank you for your order!</h1>
+<p>Order ID: {{ order.id }}</p>
+<p>Total: ${{ "%.2f"|format(order.total) }}</p>
+<h2>Items</h2>
+<ul>
+    {% for item in items %}
+    <li>{{ item.name }} x {{ item.quantity }} - ${{ "%.2f"|format(item.price) }}</li>
+    {% endfor %}
+</ul>
+<a href="{{ url_for('home') }}">Back to Home</a>
+{% endblock %}

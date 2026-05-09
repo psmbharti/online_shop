@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Profile - Online Shop{% endblock %}
+{% block content %}
+<h1>Welcome, {{ user.name }}</h1>
+<h2>Your Orders</h2>
+{% if not orders %}
+<p>No orders yet.</p>
+{% else %}
+<ul>
+    {% for o in orders %}
+    <li>Order #{{ o.id }} - ${{ "%.2f"|format(o.total) }} - {{ o.created_at }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}
