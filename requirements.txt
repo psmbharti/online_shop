@@ -2,9 +2,5 @@ Flask
 mysql-connector-python
 Flask-Login
 Werkzeug
-<<<<<<< HEAD
-gunicorn app:app
-=======
 gunicorn
 psycopg2-binary
->>>>>>> 66fb59cdaed2094f2ddca5ddc81f2641c4b58d65

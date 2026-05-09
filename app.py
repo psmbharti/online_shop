@@ -1,42 +1,44 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-import mysql.connector
 from werkzeug.security import generate_password_hash, check_password_hash
-from config import MYSQL_CONFIG, SECRET_KEY
+from config import get_db, SECRET_KEY
+import psycopg2.extras
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
-def get_db():
-    return mysql.connector.connect(**MYSQL_CONFIG)
 
 @app.route('/')
 def home():
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cursor.execute("SELECT * FROM products LIMIT 8")
     products = cursor.fetchall()
     cursor.close()
     db.close()
     return render_template('home.html', products=products)
 
+
 @app.route('/products')
 def products():
     category = request.args.get('category')
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
     if category:
         cursor.execute("SELECT * FROM products WHERE category=%s", (category,))
     else:
         cursor.execute("SELECT * FROM products")
+
     products = cursor.fetchall()
     cursor.close()
     db.close()
     return render_template('products.html', products=products, category=category)
 
+
 @app.route('/product/<int:product_id>', methods=['GET', 'POST'])
 def product_detail(product_id):
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cursor.execute("SELECT * FROM products WHERE id=%s", (product_id,))
     product = cursor.fetchone()
     cursor.close()
@@ -51,6 +53,8 @@ def product_detail(product_id):
         return redirect(url_for('cart'))
 
     return render_template('product_detail.html', product=product)
+
+
 @app.route('/cart')
 def cart():
     cart = session.get('cart', {})
@@ -58,11 +62,13 @@ def cart():
         return render_template('cart.html', items=[], total=0)
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
     product_ids = tuple(int(pid) for pid in cart.keys())
     format_strings = ','.join(['%s'] * len(product_ids))
     cursor.execute(f"SELECT * FROM products WHERE id IN ({format_strings})", product_ids)
     products = cursor.fetchall()
+
     cursor.close()
     db.close()
 
@@ -75,6 +81,8 @@ def cart():
         items.append({"product": p, "quantity": qty, "line_total": line_total})
 
     return render_template('cart.html', items=items, total=total)
+
+
 from functools import wraps
 
 def login_required(f):
@@ -86,6 +94,7 @@ def login_required(f):
         return f(*args, **kwargs)
     return wrapper
 
+
 @app.route('/checkout', methods=['GET', 'POST'])
 @login_required
 def checkout():
@@ -95,25 +104,19 @@ def checkout():
         return redirect(url_for('cart'))
 
     if request.method == 'POST':
-        address = request.form.get('address')
-        # Calculate total again
         db = get_db()
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
         product_ids = tuple(int(pid) for pid in cart.keys())
         format_strings = ','.join(['%s'] * len(product_ids))
         cursor.execute(f"SELECT * FROM products WHERE id IN ({format_strings})", product_ids)
         products = cursor.fetchall()
 
-        total = 0
-        for p in products:
-            qty = cart.get(str(p['id']), 0)
-            total += qty * float(p['price'])
+        total = sum(cart.get(str(p['id']), 0) * float(p['price']) for p in products)
 
-        # Insert order
-        cursor = db.cursor()
-        cursor.execute("INSERT INTO orders (user_id, total) VALUES (%s, %s)",
+        cursor.execute("INSERT INTO orders (user_id, total) VALUES (%s, %s) RETURNING id",
                        (session['user_id'], total))
-        order_id = cursor.lastrowid
+        order_id = cursor.fetchone()['id']
 
         for p in products:
             qty = cart.get(str(p['id']), 0)
@@ -130,20 +133,31 @@ def checkout():
         return redirect(url_for('order_confirmation', order_id=order_id))
 
     return render_template('checkout.html')
+
+
 @app.route('/order/<int:order_id>/confirmation')
 @login_required
 def order_confirmation(order_id):
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
     cursor.execute("SELECT * FROM orders WHERE id=%s AND user_id=%s",
                    (order_id, session['user_id']))
     order = cursor.fetchone()
-    cursor.execute("SELECT oi.*, p.name FROM order_items oi JOIN products p ON oi.product_id=p.id WHERE order_id=%s",
-                   (order_id,))
+
+    cursor.execute("""
+        SELECT oi.*, p.name 
+        FROM order_items oi 
+        JOIN products p ON oi.product_id=p.id 
+        WHERE order_id=%s
+    """, (order_id,))
     items = cursor.fetchall()
+
     cursor.close()
     db.close()
     return render_template('order_confirmation.html', order=order, items=items)
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -154,6 +168,7 @@ def register():
 
         db = get_db()
         cursor = db.cursor()
+
         try:
             cursor.execute(
                 "INSERT INTO users (name, email, password_hash) VALUES (%s,%s,%s)",
@@ -171,6 +186,7 @@ def register():
 
     return render_template('register.html')
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -178,7 +194,7 @@ def login():
         password = request.form['password']
 
         db = get_db()
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
         user = cursor.fetchone()
         cursor.close()
@@ -196,28 +212,34 @@ def login():
     return render_template('login.html')
 
 
-
 @app.route('/logout')
 def logout():
     session.clear()
     flash('Logged out.')
     return redirect(url_for('home'))
+
+
 @app.route('/profile')
 @login_required
 def profile():
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
     cursor.execute("SELECT * FROM users WHERE id=%s", (session['user_id'],))
     user = cursor.fetchone()
+
     cursor.execute("SELECT * FROM orders WHERE user_id=%s ORDER BY created_at DESC",
                    (session['user_id'],))
     orders = cursor.fetchall()
+
     cursor.close()
     db.close()
     return render_template('profile.html', user=user, orders=orders)
 
+
 def is_admin():
     return session.get('user_email') == 'admin@example.com'
+
 
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
@@ -227,7 +249,7 @@ def admin():
         return redirect(url_for('home'))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     if request.method == 'POST':
         name = request.form['name']
@@ -235,21 +257,22 @@ def admin():
         category = request.form['category']
         image_url = request.form['image_url']
         desc = request.form['description']
-        cursor2 = db.cursor()
-        cursor2.execute(
+
+        cursor.execute(
             "INSERT INTO products (name, description, price, image_url, category, stock) "
             "VALUES (%s,%s,%s,%s,%s,%s)",
             (name, desc, price, image_url, category, 10)
         )
         db.commit()
-        cursor2.close()
         flash('Product added.')
 
     cursor.execute("SELECT * FROM products ORDER BY id DESC")
     products = cursor.fetchall()
+
     cursor.close()
     db.close()
     return render_template('admin.html', products=products)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
