@@ -2,4 +2,4 @@ Flask
 mysql-connector-python
 Flask-Login
 Werkzeug
-gunicorn app:app
+gunicorn
