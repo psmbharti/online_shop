@@ -1,9 +1,7 @@
-CREATE DATABASE online_shop CHARACTER SET utf8mb4;
-
-USE online_shop;
+-- Create tables (no CREATE DATABASE or USE needed on Render)
 
 CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name VARCHAR(100),
     email VARCHAR(100) UNIQUE,
     password_hash VARCHAR(255),
@@ -11,29 +9,26 @@ CREATE TABLE users (
 );
 
 CREATE TABLE products (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name VARCHAR(150),
     description TEXT,
-    price DECIMAL(10,2),
+    price NUMERIC(10,2),
     image_url VARCHAR(255),
     category VARCHAR(100),
     stock INT DEFAULT 0
 );
 
 CREATE TABLE orders (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    total DECIMAL(10,2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id),
+    total NUMERIC(10,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE order_items (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_id INT,
-    product_id INT,
+    id SERIAL PRIMARY KEY,
+    order_id INT REFERENCES orders(id),
+    product_id INT REFERENCES products(id),
     quantity INT,
-    price DECIMAL(10,2),
-    FOREIGN KEY (order_id) REFERENCES orders(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
+    price NUMERIC(10,2)
 );
