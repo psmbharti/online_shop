@@ -10,5 +10,4 @@ def get_db():
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
         port=os.getenv("DB_PORT")
-        SECRET_KEY = madhu
-    )
+            )
