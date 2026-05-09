@@ -9,7 +9,3 @@ def get_db():
         password=os.getenv("W8n91glskNtNwqkSD8YDGxcMF1rNBIN7"),
         port=os.getenv("5432")
     )
-<<<<<<< HEAD
-
-=======
->>>>>>> 66fb59cdaed2094f2ddca5ddc81f2641c4b58d65
